@@ -1,0 +1,91 @@
+%===============================================================================
+% Overview.
+%===============================================================================
+
+\maketitle
+
+\begin{figure}[htb!]
+  \begin{center}
+  \href{http://creativecommons.org/licenses/by-nc-sa/3.0/}{%
+    \includegraphics{img/by-nc-sa_eu.pdf}}
+  \end{center}
+  \end{figure}
+
+\newpage
+\tableofcontents
+\newpage
+
+\begin{itemize}
+\item Officially, this is ``Programming in Unix II'' (NSWI138) but ``Advanced
+Unix Programming'' is a more convenient name. It is supposed to pick up where
+``Programming in Unix'' (NSWI015) left off, and show some areas outside of the
+scope of the 1st lecture that (not just) a C programmer is usually going to hit
+sooner or later anyway.
+\item All information you will need should be on
+\url{http://mff.devnull.cz/}, in\-clu\-ding the last version of this material.
+\item Source code examples are on \url{http://mff.devnull.cz/pvu2/src/}
+\item Assumptions:
+  \begin{itemize}
+  \item NSWI015 passed (``Programming in Unix''). Materials for that are
+  on-line on \url{http://mff.devnull.cz/pvu/slides/} but they are only in
+  Czech.
+  \item Good knowledge of the C language.
+  \item Operating Systems theory basics.
+  \end{itemize}
+\item This text and source code examples are under construction, see ChangeLog
+on page \pageref{CHANGELOG} for more information.
+\end{itemize}
+
+{\large\bf Terms of Use}
+
+\begin{itemize}
+\item Source code: standard 3-clause BSD license (see
+\url{http://blogs.oracle.com/chandan/entry/copyrights\_licenses\_and\_cddl\_illustrated}
+for illustration of what it allows)
+\item This material: Creative Commons: Attribution + Non-commercial + Share Alike
+\end{itemize}
+
+%===============================================================================
+% Overview.
+%===============================================================================
+
+\section{Overview}
+
+%===============================================================================
+\subsection{What is this lecture about?}
+
+\begin{itemize}
+  \item this lecture should extend the knowledge gained in Programming in UNIX
+  (SWI015)
+  \item covers more advanced areas a common UNIX C programmer usually hits
+  sooner or later
+\end{itemize}
+
+Obviously, it cannot cover everything, however what is discussed is tightly
+connected with source code examples and hands-on experience.
+
+%===============================================================================
+\subsection{The lecture will cover...}
+
+not neccessarily in the following order...
+
+\begin{itemize}
+  \item a few notes on testing your code
+  \item how to efficiently debug user level programs
+  \item working with terminals and pseudo terminals, writing terminal
+  applications
+  \item advanced network programming
+  \item advanced thread programming, using a non-POSIX thread API
+  \item advanced IPC and I/O
+  \item secure programming or how to write your programs in a more secure way
+  and how to avoid common pitfalls
+\end{itemize}
+
+%===============================================================================
+\subsection{A few notes on source code files}
+
+\begin{itemize}
+\item most of them should work on Solaris, Linux, BSD/OS X
+\item with POSIX standard in mind but sometimes we show system specific
+features, e.g. Solaris Threads API
+\end{itemize}

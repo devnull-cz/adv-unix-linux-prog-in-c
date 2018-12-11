@@ -1,0 +1,52 @@
+
+Licenses:
+
+### Text: Creative Commons: Attribution + Non-commercial + Share Alike
+
+This license lets others remix, tweak, and build upon your work
+non-commercially, as long as they credit you and license their new creations
+under the identical terms. Others can download and redistribute your work just
+like the by-nc-nd license, but they can also translate, make remixes, and
+produce new stories based on your work. All new work based on yours will carry
+the same license, so any derivatives will also be non-commercial in nature.
+
+- license deed:
+  http://creativecommons.org/licenses/by-nc-sa/3.0/
+- legal code:
+  http://creativecommons.org/licenses/by-nc-sa/3.0/legalcode
+
+Note: The Commons Deed is not a license. It is simply a handy reference
+      for understanding the Legal Code (the full license) it is a
+      human-readable expression of some of its key terms. Think of it as
+      the user-friendly interface to the Legal Code beneath. This Deed itself
+      has no legal value, and its contents do not appear in the actual license. 
+
+
+### Code: BSD license
+
+Each source code file with example should contain the following license:
+
+/*
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in the
+ *   documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *   derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */

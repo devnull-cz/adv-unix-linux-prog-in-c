@@ -1,0 +1,58 @@
+<ipe version="60030" creator="Ipe 6.0 preview 30">
+<info created="D:20090825214636" modified="D:20090825214636" bbox="cropbox"/>
+<page gridsize="16">
+<layer name="alpha"/>
+<view layers="alpha" active="alpha"/>
+<path layer="alpha" stroke="black" matrix="0,818182 0 0 0,833333 34,9091 64" pen="normal">
+192 288 m
+368 288 l
+368 384 l
+192 384 l
+h
+</path>
+<text stroke="black" matrix="1 0 0 1 16 0" pos="224 336" type="label" valign="baseline" size="normal" style="default">prog</text>
+<path stroke="black" pen="normal">
+80 176 m
+208 176 l
+208 256 l
+80 256 l
+h
+</path>
+<text stroke="black" matrix="1 0 0 1 16 16" pos="96 208" type="label" valign="baseline" size="normal" style="default">bigfoo.so.1</text>
+<path stroke="black" pen="normal">
+304 176 m
+432 176 l
+432 256 l
+304 256 l
+h
+</path>
+<text stroke="black" matrix="1 0 0 1 0 16" pos="336 208" type="label" valign="baseline" size="normal" style="default">bigbar.so.1</text>
+<path stroke="black" pen="normal">
+80 48 m
+208 48 l
+208 128 l
+80 128 l
+h
+</path>
+<text stroke="black" matrix="1 0 0 1 -16 16" pos="112 80" type="label" valign="baseline" size="normal" style="default">smallfoo.so.1</text>
+<path stroke="black" pen="normal" arrow="normal">
+192 304 m
+144 256 l
+</path>
+<path stroke="black" pen="normal" arrow="normal">
+336 304 m
+368 256 l
+</path>
+<path stroke="black" pen="normal" arrow="normal">
+144 176 m
+144 128 l
+</path>
+<path stroke="black" pen="normal" arrow="normal">
+368 176 m
+144 128 l
+</path>
+<text stroke="black" pos="320 192" type="label" valign="baseline" size="normal" style="default">bar()</text>
+<text stroke="black" pos="96 192" type="label" valign="baseline" size="normal" style="default">foo()</text>
+<text stroke="black" pos="96 64" type="label" valign="baseline" size="normal" style="default">foo()</text>
+</page>
+</ipe>

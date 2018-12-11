@@ -1,0 +1,490 @@
+%===============================================================================
+% Advanced Network Programming.
+%===============================================================================
+
+\section{Advanced Network programming}
+
+beyond the "listen on a socket and accept requests"
+
+%===============================================================================
+
+\subsection{Accessing low level structures}
+
+\begin{itemize}
+  \item get a list of interfaces on the system (ala ifconfig(1M)) (1)
+  \begin{itemize}
+    \item OpenBSD: getifaddrs(3) - get list of IPs on the system
+    \item Solaris: ioctl() interface and \texttt{SIOCGLIFNUM},
+      \texttt{SIOCGLIFCONF} (2)
+  \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] e.g. to listen on each individual address in the system
+  \begin{itemize}
+    \item handy when the reply has to have the right source address
+      (e.g. NTP protocol)
+    \item need to track down the changes while running (see the
+      \texttt{PF\_ROUTE} socket slide)
+  \end{itemize}
+  \item[(2)] Generic approach of copying out sequence of structures from
+    the kernel to userland:
+\begin{enumerate}
+  \item open \texttt{AF\_INET}/\texttt{SOCK\_DGRAM} socket
+  \item fill the lifnum structure
+  \item issue the \texttt{SIOCGLIFNUM} ioctl to get number of interfaces
+  \item allocate buffer for number of entries acquired in previous step
+  \item fill the lifconf structure
+  \item issue the \texttt{SIOCGLIFCONF} ioctl to get interface structures
+  \item traverse the list of lifreq structures
+\end{enumerate}
+  \item \texttt{lifreq} is defined in \texttt{usr/src/uts/common/net/if.h}
+and contains various interface specific data:
+\begin{itemize}
+  \item name
+  \item physical info
+  \item address info
+  \item MTU
+\end{itemize}
+  \item {\bf Example}: \priklad{adv-net-prog/ifclist/}
+\begin{enumerate}
+	\item compile
+\begin{verbatim}
+	   make clean && make
+\end{verbatim}
+	\item run for both address families
+\begin{verbatim}
+	   ./getlist 4
+	   ./getlist 6
+\end{verbatim}
+	\item compare the output from the list of interfaces
+\begin{verbatim}
+	   ifconfig -a
+\end{verbatim}
+\end{enumerate}
+{\bf Task}: adjust \texttt{ifclist} to print out IPv4/IPv6 addresses
+  on the interfaces
+\end{itemize}
+
+
+%===============================================================================
+
+\subsection{More setsockopt() options}
+
+\begin{itemize}
+  \item \texttt{SO\_SNDBUF}/\texttt{SO\_RCVBUF} - performance tuning (1)
+  \item \texttt{SO\_EXCLBIND} - exclusive binding (2)
+  \item \texttt{SO\_KEEPALIVE} (3)
+  \item \texttt{SO\_DONTROUTE} - append ifc name and send to the wire (4)
+  \item \texttt{IPPROTO\_IPV6} + \texttt{IPV6\_V6ONLY}
+  \item \texttt{IPPROTO\_TCP} + \texttt{TCP\_NODELAY}
+  \item \texttt{IP\_SEC\_OPT} - use IPsec per-socket (per-port) policy,
+    including policy bypass (5)
+\end{itemize}
+
+
+%	- (janp) zajimavy priklad by byl ukazat na dummy-like netu, ze high
+%	  latency, high bandwidth link benefituje hodne ze zvetseni TCP window
+%	  atd.
+
+\begin{itemize}
+  \item some of the socket options are OS specific
+  \item[(1)] we can set {snd,rcv}buf not only for TCP/UDP sockets but also
+	  for ICMP (raw ICMP socket)
+  \item[(2)] related to security (XXX find the SSH security bug with
+    AF\_INET6/AF\_INET fallback)
+  \item[(3)] mention OpenSSH and the distinction of Keepalive messages
+	on application layer
+%	XXX zminit, ze TCP keepalive je hlavne pro detekci crashu celych stroju.
+  \item[(4)] gets full control over sending together with RAW sockets
+	  - see ping(1M) and -r option
+  \item[(5)]
+  \begin{itemize}
+    \item {\bf Example}: \priklad{adv-net-prog/setsockopt/policy-bypass.c}
+\begin{enumerate}
+		 \item compile
+		 \item run the program w/out bypass
+\begin{verbatim}
+	    ./bypass 0 20.0.0.1 80
+\end{verbatim}
+		 \item set policy
+\begin{verbatim}
+	    echo "{ raddr 20.0.0.1 rport 80 } ipsec
+	      { encr_auth_alg sha1 encr_alg aes }" > /tmp/mypolicy.conf
+	    chmod 644 /tmp/mypolicy.conf
+	    ipsecconf -f -a /tmp/mypolicy.conf
+\end{verbatim}
+	         \item run the program w/out bypass again
+\begin{verbatim}
+	    ./bypass 0 20.0.0.1 80
+\end{verbatim}
+		 \item run the program with bypass
+\begin{verbatim}
+	    ./bypass 1 20.0.0.1 80
+\end{verbatim}
+\end{enumerate}
+  \item {\bf Example}: \priklad{adv-net-prog/setsockopt/auth.c}
+		   \begin{itemize}
+		   \item similar to policy-bypass.c but provides traffic 
+                   authentication
+		   \end{itemize}
+		 \begin{enumerate}
+		 \item setup IKE
+		    XXX
+                 \item initiate traffic
+		 \end{enumerate}
+  \item References:
+    \url{http://blogs.oracle.com/danmcd/entry/put\_ipsec\_to\_work\_in}
+  \end{itemize}  
+\end{itemize}  
+%XXX
+%	- byl bych opravdu velmi opatrny s IPsecem, vetsina lidi nebude o tom
+%	  skoro nic vedet. Napriklad ja o tom skoro nic nevim krome opravdu
+%	  zakladnich veci.
+
+
+%===============================================================================
+
+\subsection{Raw sockets}
+
+\begin{itemize}
+  \item bypass packet encapsulation, i.e. push our own headers on the wire
+    \begin{itemize}
+      \item this is for layer-3/network control
+      \item for layer-2/link access PF\_PACKET interface is needed (1)
+    \end{itemize}
+  \item \texttt{SOCK\_RAW} is a type of socket (see socket(3socket))
+    \begin{itemize}
+      \item can be used in various domains (will focus on PF\_INET)
+    \end{itemize}
+  \item need to know packet header format and protocol specifics (2)
+\end{itemize}
+
+
+%	XXX
+%		- hmm, neni tomu moc rozumnet. Pouzivani "need to know" se mi
+%		  zda trochu nejasny. Melo by tam spis byt "you must know..."
+%		  nebo "programmer must know" nebo tak. "need to know" se plete
+%		  s klasifikaci utajeni dokumentu.
+
+\begin{itemize}
+  \item[(1)] works on Linux, Solaris
+  \item[(2)] complete+correct IP header will be needed for most of the cases
+    \begin{itemize}
+    \item this means we have to compute the checksum
+    \item we're pushing stuff to the wire, hence correct byte ordering is
+        necessary (\texttt{htons()} etc, see byteorder(3socket))
+    \end{itemize}
+  \item[(3)] if we need application layer protocols we can let the stack to
+    build IP header for us
+    \begin{itemize}
+    \item ICMP
+\begin{verbatim}
+    socket(PF_INET, SOCK_RAW, IPPROTO_ICMP)
+\end{verbatim}
+    \item TCP
+\begin{verbatim}
+    socket(PF_INET, SOCK_RAW, IPPROTO_TCP)
+\end{verbatim}
+    \item UDP
+\begin{verbatim}
+    socket(PF_INET, SOCK_RAW, IPPROTO_UDP)
+\end{verbatim}
+    \end{itemize}
+\end{itemize}
+
+{\bf Example}: construct ICMP packet header with arbitrary type and code
+	 \texttt{adv-net-prog/raw-socket}
+\begin{enumerate}
+	 \item compile
+\begin{verbatim}
+    make clean && make
+\end{verbatim}
+	 \item construct ICMP echo request
+\begin{verbatim}
+    ./icmpraw 20.20.10.10 8 0
+\end{verbatim}
+\end{enumerate}
+
+%- OS specifics 
+%  - endianess in header fields
+%  - boundaries of what is allowed to push
+
+\begin{itemize}
+\item libnet is a good C wrapper for raw socket manipulation
+  \begin{itemize}
+    \item \url{http://sourceforge.net/projects/libnet-dev/}
+    \item \url{http://www.securityfocus.com/infocus/1386}
+  \end{itemize}
+\end{itemize}
+
+%XXX
+%	- chybi tu par odkazu na na RFC pro IP apod.
+
+
+%===============================================================================
+
+\subsection{Layer-2 (link) access}
+
+\begin{itemize}
+  \item possible choices for link layer access:
+    \begin{itemize}
+      \item Datalink Provider Interface (DLPI) - Solaris
+      \item \texttt{SOCK\_PACKET} - Linux
+      \item Berkeley Packet Filter (BPF) - almost everywhere
+    \end{itemize}
+  \item libpcap
+    \begin{itemize}
+      \item high-level interface to packet capture
+        \item wrapper for all the 3 choices above - OS independent interface
+      \item pcap(3)
+    \end{itemize}
+\end{itemize}
+
+
+%	XXX
+%		- chybi mi tu kratka motivace. Napr. ze chci cist, co na siti
+%		  bezi na port 80 atd., at si pod tim muzou neco predstavit.
+%		- myslim ze by se hodil i obrazek, jak to obecne cely funguje.
+
+\begin{itemize}
+  \item Sequence of steps:
+  \begin{enumerate}
+    \item find capturing device: pcap\_lookupdev() (optional)
+    \item get packet capture descriptor and open the device for capture:
+      pcap\_open\_live()
+      - alternatively open a file with stored traffic: pcap\_open\_offline()
+    \item get network address and mask for the interface: pcap\_lookupnet()
+      - will be needed for compiling the filter
+    \item compile the filter: pcap\_compile()
+    \item put the filter into effect: pcap\_setfilter()
+    \item read the data: pcap\_loop()/pcap\_next()
+  \end{enumerate}
+  \item {\bf Example}: how to integrate pcap into an application
+	 \priklad{adv-net-prog/packet-capture}
+	 Capture and interpret TCP segements:
+  \begin{enumerate}
+	 \item compile
+\begin{verbatim}
+	    make clean && make
+\end{verbatim}
+	 \item run
+\begin{verbatim}
+	    ./tcptraffic host www.ms.mff.cuni.cz and port 80
+\end{verbatim}
+	 \item initiate some traffic
+\begin{verbatim}
+	    echo "GET /" | nc -w 10 www.ms.mff.cuni.cz 80
+\end{verbatim}
+	 \item see the output
+  \end{enumerate}
+  \item Resources:
+    \begin{itemize}
+      \item UNIX network programming, volume 1 (Richard W. Stevens),
+         29 Data link access
+    \end{itemize}
+\end{itemize}
+
+
+
+%===============================================================================
+
+\subsection{Porting applications to IPv6}
+
+\begin{itemize}
+  \item or alternatively - writing portable applications
+  \item or better - address family agnostic applications
+  \item AF-specific data structures (avoid if possible (1)):
+    \begin{itemize}
+      \item \texttt{AF\_INET} (IPv4): \texttt{sockaddr\_in},
+         \texttt{in\_addr\_t}
+      \item \texttt{AF\_INET6} (IPv6): \texttt{sockaddr\_in6},
+         \texttt{in6\_addr\_t}
+    \end{itemize}
+  \item AF-agnostic data structures:
+    \begin{itemize}
+      \item \texttt{sockaddr}, \texttt{sockaddr\_storage} (2)
+    \end{itemize}
+  \item AF-specific functions (avoid):
+    \begin{itemize}
+      \item \texttt{gethostbyname()}, \texttt{gethostbyaddr()}
+    \end{itemize}
+  \item AF-agnostic functions:
+    \begin{itemize}
+      \item \texttt{getaddrinfo()}, \texttt{getnameinfo()}
+    \end{itemize}
+\end{itemize}
+
+
+% XXX obrazek datovych struktur s pretypovanim
+
+% idea: kdyz zacinam psat novy sitovy program, tak co je potreba mit na
+%       pameti a udelat, aby aplikace byla rovnou funkcni i pro IPv6.
+
+\begin{itemize}
+  \item[(1)] Sometimes it is not possible to avoid AF-specifics
+  \item[(2)] de{}fine in \texttt{/usr/include/sys/socket\_impl.h} (will be
+  included with \texttt{<sys/socket.h>})
+\end{itemize}
+
+{\bf Example}: Watch out when listening on \texttt{AF\_UNSPEC} sockets:
+\begin{itemize}
+  \item CVE-2008-1483 in SunSSH (CR 6684003)
+  \item \url{http://src.opensolaris.org/source/history/onnv/onnv-gate/usr/src/cmd/ssh/libssh/common/channels.c}
+  \item \texttt{x11\_create\_display\_inet()} does the setup for X11 forwarding
+    over SSH channel
+  \item it works like this: \priklad{adv-net-prog/ipv6-port-bind/cycles.c}
+\begin{lstlisting}
+    for port in (low, high); do
+        list = resolve(port for all address faimilies)
+        for family in list; do
+            create socket for family
+            bind the socket to the port and family
+            if the bind fails
+                if the list is non-empry
+                    continue
+                      (try the same port number with different address family)
+                else
+                    try next port number
+                fi
+            else
+                record the port number
+            fi
+        done
+    done
+\end{lstlisting}
+  \item resolving will produce list with IPv6 family entry first and IPv4
+    entry second
+  \item if someone binds the port to IPv6 \emph{only} then \texttt{bind()}
+    for IPv4 will succeed
+    \begin{itemize}
+    \item the forwarder thinks everything is okay and passes the port number
+    \end{itemize}
+  \item the app will try to connect to that port
+    \begin{itemize}
+    \item some will try IPv6 first but that is hijacked by the attacker
+      (who key steal keystrokes in case of X11 connection etc.)
+    \end{itemize}
+\end{itemize}
+
+%   XXX add attacker app (use nc ?)
+
+
+%===============================================================================
+
+\subsection{PF\_ROUTE socket}
+
+\begin{itemize}
+\item exists on BSD, Linux, Solaris
+  \begin{itemize}
+    \item PF\_ROUTE exists since 4.3BSD-Reno
+  \end{itemize}
+  \item usage: routing daemons, network server programs which need to observe
+        changes in local addresses and logical interfaces (adding/removing
+        server instances)
+\end{itemize}
+
+
+\begin{itemize}
+  \item Solaris man pages:
+  \begin{itemize}
+    \item routing(7P)
+    \item route(7P) - describes \texttt{PF\_ROUTE} interface
+  \end{itemize}
+  \item working with the socket (passive mode):
+\begin{enumerate}
+  \item open new socket
+\begin{verbatim}
+     socket(PF_ROUTE, SOCK_RAW, 0);
+\end{verbatim}
+  \item enter event loop watching for new messages: select/poll + read
+  \item processing messages
+\end{enumerate}
+\end{itemize}
+
+{\bf Example}: write something like 'route monitor' (see route(1M)) but only
+    for watching interface additions/removals
+     - useful for managing per-address server instances (e.g. UDP servers)
+%	 XXX - server instances? To nejak nechapu.
+         \priklad{adv-net-prog/routing-socket/}
+\begin{enumerate}
+  \item compile
+\begin{verbatim}
+      make clean && make
+\end{verbatim}
+  \item run
+\begin{verbatim}
+      ./rtwatch
+\end{verbatim}
+  \item create new interface (has to plumb IPv6 interface first, then add logical)
+\begin{verbatim}
+      ifconfig iprb0 inet6 plumb up
+      ifconfig iprb0 inet6 addif 2001:0db8:3c4d:55:a00:20ff:fe8e:f3ad/64 up
+\end{verbatim}
+  \item observe the messages emitted by rtwatch
+\end{enumerate}
+
+
+%===============================================================================
+
+\subsection{PF\_KEY socket}
+
+\begin{itemize}
+  \item analogous to the PF\_ROUTE socket
+  \item available in Solaris, BSD
+    \begin{itemize}
+      \item man page: pf\_key(7P)
+    \end{itemize}
+  \item manipulates IPsec Security Associations (SAs) (1) from userland
+  \item app says ADD/DELETE/UPDATE SAs to the kernel
+  \item \texttt{PF\_KEY} interface described in RFC 2367
+  \item there is also \texttt{PF\_POLICY} socket on Solaris which manipulates
+    security policy kernel entries
+    \begin{itemize}
+      \item which decide whether packet will be allowed, denied or changed (2)
+    \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] SAs src/dst description, contain key material, timing information
+    etc.
+    \begin{itemize}
+      \item SA is unidirectional
+      \item they are used for computing authentication data and/or encrypt
+        packets on the wire
+    \end{itemize}
+  \item[(2)] simple per-port (per-application) firewall
+\end{itemize}
+
+{\bf Example}: flush IPsec AH SAs
+	 \priklad{adv-net-prog/key-socket/}
+\begin{enumerate}
+	 \item compile the program
+\begin{verbatim}
+	    make clean && make
+\end{verbatim}
+  	 \item Use Example \priklad{adv-net-prog/setsockopt/auth.c} to set IPsec SAs
+         \item observe SAs in the system and start watching
+\begin{verbatim}
+	    ipseckey dump
+	    ipseckey monitor
+\end{verbatim}
+	 \item flush the AH SAs using our program
+\begin{verbatim}
+	    ./ahflush
+\end{verbatim}
+         \item check
+\begin{verbatim}
+	    ipseckey dump
+\end{verbatim}
+\end{enumerate}
+
+\begin{itemize}
+  \item References:
+    \url{http://blogs.oracle.com/danmcd/entry/pf\_key\_in\_solaris\_or}
+\end{itemize}
+
+
+\endinput

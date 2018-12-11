@@ -1,0 +1,133 @@
+%===============================================================================
+% Testing slide(s).
+%===============================================================================
+
+\section{Testing}
+
+\subsection{Why ?}
+\begin{itemize}
+  \item To deliver good quality product (otherwise you will lose
+  customers, money or lifes). Read the article "History's Worst
+  Software Bugs" on
+  \url{http://www.wired.com/software/coolapps/news/2005/11/69355?currentPage=all}
+  in Wired (by Simson Garfinkel) about the nature and dreadful consequences of
+  some of the bugs in software.
+  \item To gain good level of confidence that the code works as expected
+  (so you can sleep without unrest)
+  \item Not to harm your reputation (by delivering crap product)
+  \item Not to break the existing functionality when adding new feature
+    or substantially changing current implementation:
+  \url{http://en.wikipedia.org/wiki/Regression\_testing}
+  \item To test stuff others have produced, e.g. when doing assesment
+  of the product, when taking over the code someone else has written, etc.
+  \item etc.
+\end{itemize}
+
+\subsection{When ?}
+\begin{itemize}
+  \item During development (to make sure you're actually progressing,
+  not going sideways or regressing) \texttt{(1)}
+  \item During code review (to be sure your changes done to satisfy code
+  reviewer's comments are sound)
+  \item Before integration (after merging with mainstream gate)
+  \item After integration (to be sure someone else's change
+  will not break your integration)
+\end{itemize}
+
+\begin{itemize}
+\item[(1)] To write pscp (parallel scp(1) script) pscp-test was used:
+\url{http://blogs.oracle.com/janp/entry/speeding\_up\_ssh\_data\_transfer}
+  \begin{itemize}
+    \item otherwise it would not be possible to complete the script in such
+    a short time and catch most of the corner cases.
+  \end{itemize}
+\end{itemize}
+
+\Task{Structure shape}{testing/structure-shape/}{%
+This source code is based on a real world code from a daemon
+implementing IKE protocol (see RFC 2409). During protocol exchange, the 2 sides
+need to agree on common set of properties. The key established during the
+exchange is then used to protect internet traffic. Given the properties of
+symmetric ciphers (see birthday attack) and limitation of exposure in case of
+key compromise, the rekeying is performed every once in a while. This rekeying
+should not disrupt the traffic flow, so it happens in steps. There are two
+rekeying times - {\em soft} and {\em hard}. When the soft timer expires, new
+key negotiation is kicked off. When the hard timer expires, the old key is
+deleted. Thus, there should be ample time between soft and hard timer values for
+the rekeying to succeed. There are two sets of timers - one for time and one for
+the amount of transferred data. Each timer has its default value. The program
+tries to produce a set of 4 values which comply to the set of rules.}{%
+\begin{enumerate}
+\item Compile: \texttt{make clean \&\& make}
+\item See the code and try to run with different arguments: \\
+\texttt{./shapeup 50 60 0 0} \\
+\texttt{./shapeup 0 0 0 0} , etc.
+\item Find how many bugs are there in the code (there are at least 5 however
+I am pretty sure you will find even more).
+\item Modify the program slightly to check for the 4 conditions using
+\texttt{assert()} and write a shell script which will perform fuzz testing,
+i.e. run the program with random (integer) values. The crashes induced by
+the \texttt{assert()}s will make the problems apparent.
+\item Now you know what types of errors are there in the program so you can
+design test cases to prevent regressions.
+\item Create public project on \url{http://github.com} and populate it with
+Makefile, \texttt{struct.c} files.
+\item Modify \texttt{struct.c} code so that when specifying \texttt{-t} option
+on the command line, it will check whether the 4 conditions are met. If not,
+the program will return 1, otherwise it will return 0. The modification of the
+program should be done using refactoring so that the previous functionality is
+preserved, i.e. running \texttt{./shapeup <num> <num> <num> <num>} will still
+work and will always return 0.
+\item Create couple of unit tests, each unit test will run the program with
+the \texttt{-t} option with multiple different sets of values.
+Add \texttt{test} target to the Makefile which will run the tests. Even if one
+of the tests fails, the rest of tests should be still executed with overall
+result as fail.
+\item Integrate Travis CI with your GitHub repo. With each push to the
+repository the \texttt{test} target will be invoked. Carefully note the
+limitations of building in the Travis CI environment (operating system choices,
+compiler modes and versions, etc.)
+\item Start fixing the program so that it works. Proceed with small steps,
+commit each change and observe Travis CI builds.
+\item Once you are confident that all of the bugs are fixed, ask one of your
+fellow students to review your code. Fix any bugs he may find.
+\end{enumerate}
+}
+
+%===============================================================================
+\subsection{Types of testing}
+
+\begin{itemize}
+  \item How ?
+  \begin{itemize}
+    \item unit test (for given problem)
+    \begin{itemize}
+      \item test just the specific change, e.g. to make sure the fix really
+      addresses the problem.
+    \end{itemize}
+    \item stress test \texttt{(3)}
+    \item automated test suite \texttt{(2)}
+    \item Test bed - deploy the product in near-real-life scenario \texttt{(1)}
+  \end{itemize}
+\end{itemize}
+
+\begin{itemize}
+\item[(1)] The "eat our own food/fly our own planes" spirit - install
+  the product and use it internally/by yourself/by your friends
+  (better motivation for good quality). Gives additional
+  code coverage (\url{http://en.wikipedia.org/wiki/Code\_coverage}).
+\item[(2)] Automated test suite should be written during development and
+  after that used on a regular basis - (at least before integration of a
+  change and before release is shipped),
+  can be run on multitude of hardware platforms, with different settings -
+  this will give a matrix of what should/could be tested. Test suite can
+  contain both functional and stress tests.
+\item[(3)] Example: when writing multithreaded application/library it's
+  useful to write a stress test which would try to break it by issuing many
+  valid requests/calls in unpredictable fashion. Useful for detecting
+  boundary conditions, race conditions etc. This also gives more testing
+  coverage.
+\end{itemize}
+
+%===============================================================================
+\endinput

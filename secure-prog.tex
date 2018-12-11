@@ -1,0 +1,927 @@
+%===============================================================================
+% Secure Programming.
+%===============================================================================
+
+\section{Secure Programming}
+
+\begin{itemize}
+  \item Motivation/goal:
+  \begin{itemize}
+    \item learn from the mistakes of others
+    \item know how to write secure code (approach, techniques)
+    \item be aware of what could go wrong/sensitive areas
+  \end{itemize}
+  \item We are not dealing with:
+  \begin{itemize}
+    \item secure use of cryptography primitives
+    \item side-channel attacks
+    \item robust secure network protocol design
+    \item exploit techniques and analysis \texttt{(1)}
+  \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] while technically interesting topic (e.g. for more in depth
+  understanding of call procedures, assembly, HW architecture and internals
+  in general) this is certainly out of scope and not in line with the main
+  goal of this chapter
+\end{itemize}
+
+%===============================================================================
+
+\subsection{More secure programs}
+
+\begin{itemize}
+  \item Prevention: 
+  \begin{itemize}
+    \item use of secure functions (strlcpy/strlcat)
+  \end{itemize}
+  \item Making attacker's life harder
+  \begin{itemize}
+    \item random allocations (mmap, malloc, ld.so)
+    \item protection of memory segments (non-executable stack) (1)
+  \end{itemize}
+  \item Impact minimization
+  \begin{itemize}
+    \item privilege revocation (ping)
+    \item privilege separation (OpenSSH)
+    \item isolation (chroot, systrace, virtualization)
+    \item separate uids for each service (\texttt{\_ntp}, \texttt{\_snmpd}, ...)
+    \item buffer overflow detection and reaction (canary in the stack)
+  \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+\item[(1)] non-exec stack can be worked around by e.g. overwriting return
+address pointer with address of \texttt{system()} routine in libc and
+constructing a frame which contains \texttt{"/bin/sh"} as an argument.
+\end{itemize}
+
+%===============================================================================
+
+\subsection{Generic rules}
+
+\begin{itemize}
+  \item Check input data thoroughly (and do the right thing if they do not fit)
+  \item {\it Do not assume} (1) (but rather check to confirm)
+  \item Focus on corner cases (and go through all of them in detail)
+  \begin{itemize}
+    \item this includes handling failures properly (2)
+  \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] A quotation from a whiteboard in office of an engineer.
+  \item[(2)] I.e. returning failure code all the way up, freeing unneeded
+    resources and reacting on it
+    \begin{itemize}
+    \item e.g. memory leak in error path can lead to Denial Of Service (DoS) by
+      injecting number of invalid requests. See CR XXX (n2cp leak).
+    \end{itemize}
+\end{itemize}
+
+{\bf Task}:
+\begin{enumerate}
+  \item Intro: KSSL is in-kernel SSL proxy in OpenSolaris/Solaris. It had a
+    interoperability bug related to SSL/TLS protocol implementation.
+  \item problem statement: {\it "... we needlessly fail a client hello request
+        that has other compression methods in addition to the mandatory null
+        compression method. This should be allowed since the spec allows
+        supporting only the mandatory CompressionMethod.null and ignoring
+        any other methods in client hello."}
+  \item see the webrev \texttt{XXX/client\_hello.webrev.1} with
+    the proposed fix
+    \begin{itemize}
+    \item focus on \texttt{kssl\_handle\_client\_hello()}
+    \end{itemize}
+  \item input info:
+     \begin{itemize}
+     \item m-block structure (\texttt{mblk\_t *mp}) represents SSL Client
+     Hello message
+     \item \texttt{mp->b\_rptr} is the beginning (pointer to area where we
+     can start reading), \texttt{b\_wptr} is the end (pointer to area
+     where we can start writing)
+     \item see the definition in \texttt{usr/src/uts/common/sys/stream.h}:
+\begin{verbatim}
+    363 /*
+    364  * Message block descriptor
+    365  */
+    366 typedef struct	msgb {
+    367 	struct	msgb	*b_next;
+    368 	struct  msgb	*b_prev;
+    369 	struct	msgb	*b_cont;
+    370 	unsigned char	*b_rptr;
+    371 	unsigned char	*b_wptr;
+    372 	struct datab 	*b_datap;
+    373 	unsigned char	b_band;
+    374 	unsigned char	b_tag;
+    375 	unsigned short	b_flag;
+    376 	queue_t		*b_queue;	/* for sync queues */
+    377 } mblk_t;
+\end{verbatim}
+  \end{itemize}
+   \item the assignment:
+   \begin{enumerate}
+        \item find the problem with the proposed fix
+        \begin{itemize}
+          \item hint: it's handy to look into the TLSv1 spec RFC 2246
+                  (sections 4.3, 7.4.1.2)
+          \item use code review/inspection approach (reader role)
+	  \item What would happen if someone exploited the problem ?
+	    (see first point of this Task)
+        \end{itemize}
+	\item once the problem is clear, propose correct solution
+          \begin{itemize}
+	  \item compare your solution with \texttt{XXX/client\_hello.webrev.2}
+          \end{itemize}
+   \end{enumerate}
+\end{enumerate}
+
+%===============================================================================
+
+\subsection{Checking where necessary}
+
+\begin{itemize}
+  \item checking return values is not only useful for graceful handling of
+    errors but can also have security impact
+  \item assuming a function does always the right thing can later undermine
+    sensitive area of code
+\end{itemize}
+
+
+{\bf Example}: \texttt{rtld} local root exploit in FreeBSD 7.2
+\begin{itemize}
+  \item intro: in FreeBSD, when loading setuid/setgid programs into memory,
+                  dynamic (run-time) loader scrubs the environment so it
+		  does not contain insecure (read user supplied) variables.
+		  (mainly \texttt{LD\_LIBRARY\_PATH} and \texttt{LD\_PRELOAD})
+   \begin{itemize}
+   \item this is done via \texttt{unsetenv()} defined in
+     \url{http://www.freebsd.org/cgi/cvsweb.cgi/src/lib/libc/stdlib/getenv.c:unsetenv()}
+   \end{itemize}
+  \item see the code in:
+        \url{http://www.freebsd.org/cgi/cvsweb.cgi/src/libexec/rtld-elf/rtld.c}
+    \begin{itemize}
+    \item function \texttt{\_rtld()} is the "main entry point for dynamic
+       linking". It contains this section:
+    \end{itemize}
+\begin{verbatim}
+    trust = !issetugid();
+
+    ld_bind_now = getenv(LD_ "BIND_NOW");
+    /* 
+     * If the process is tainted, then we un-set the dangerous environment
+     * variables.  The process will be marked as tainted until setuid(2)
+     * is called.  If any child process calls setuid(2) we do not want any
+     * future processes to honor the potentially un-safe variables.
+     */
+    if (!trust) {
+        unsetenv(LD_ "PRELOAD");
+        unsetenv(LD_ "LIBMAP");
+        unsetenv(LD_ "LIBRARY_PATH");
+        unsetenv(LD_ "LIBMAP_DISABLE");
+        unsetenv(LD_ "DEBUG");
+        unsetenv(LD_ "ELF_HINTS_PATH");
+    }
+\end{verbatim}
+  \item let's look at GETENV(3) man page which describes the semantics of
+    return values of \texttt{unsetenv()}:
+\begin{verbatim}
+     The unsetenv() function deletes all instances of the variable name
+     pointed to by name from the list.
+
+RETURN VALUES
+...
+     The setenv(), putenv(), and unsetenv() functions return the value 0 if
+     successful; otherwise the value -1 is returned and the global variable
+     errno is set to indicate the error.
+
+     [EINVAL]           The function getenv(), setenv() or unsetenv() failed
+                        because the name is a NULL pointer, points to an empty
+                        string, or points to a string containing an ``=''
+                        character.
+...
+     [EFAULT]           The functions setenv(), unsetenv() or putenv() failed
+                        to make a valid copy of the environment due to the
+                        environment being corrupt (i.e., a name without a
+                        value).  A warning will be output to stderr with
+                        information about the issue.
+\end{verbatim}
+    \item the first case is no-variable/no-value, the latter is
+    variable/no-value.
+\begin{verbatim}
+/*
+ * Unset variable with the same name by flagging it as inactive.  No variable is
+ * ever freed.
+ */
+int
+unsetenv(const char *name)
+{
+        int envNdx;
+        size_t nameLen;
+
+        /* Check for malformed name. */
+        if (name == NULL || (nameLen = __strleneq(name)) == 0) {
+                errno = EINVAL;
+                return (-1);
+        }
+
+        /* Initialize environment. */
+        if (__merge_environ() == -1 || (envVars == NULL && __build_env() == -1))
+                return (-1);
+
+        /* Deactivate specified variable. */
+        envNdx = envVarsTotal - 1;
+        if (__findenv(name, nameLen, &envNdx, true) != NULL) {
+                envVars[envNdx].active = false;
+                if (envVars[envNdx].putenv)
+                        __remove_putenv(envNdx);
+                __rebuild_environ(envActive - 1);
+        }
+
+        return (0);
+}
+\end{verbatim}
+  \item it calls \texttt{\_\_merge\_environ()} which contains this code:
+\begin{verbatim}
+          if (origEnviron != NULL)
+                for (env = origEnviron; *env != NULL; env++) {
+                        if ((equals = strchr(*env, '=')) == NULL) {
+                                __env_warnx(CorruptEnvValueMsg, *env,
+                                    strlen(*env));
+                                errno = EFAULT;
+                                return (-1);
+                        }
+\end{verbatim}
+	  \item the \texttt{*envp[]} array contains pointers to strings like:
+	    \texttt{HOME=/home/user} , \texttt{TERM=xterm} and such
+	    \begin{itemize}
+	    \item so if we replace one of the env strings by value-less string
+	      \texttt{unsetenv()} will bail out as above and will not unset the
+	      variable
+	    \end{itemize}
+  \item compare the above with OpenSolaris approach of handling setuid/setgid
+	    programs:
+\url{http://src.opensolaris.org/source/xref/onnv/onnv-gate/usr/src/cmd/sgs/rtld/common/setup.c:setup()}
+  \begin{itemize}
+   \item \texttt{setup()} which contains the main rtld functionality calls
+   \texttt{security()} which performs the setuid/setgid check:
+\begin{verbatim}
+     	/*
+     	 * Determine whether we have a secure executable.
+     	 */
+     	security(uid, euid, gid, egid, auxflags);
+\end{verbatim}
+  \item \texttt{security()} defined in
+\url{http://src.opensolaris.org/source/xref/onnv/onnv-gate/usr/src/cmd/sgs/rtld/common/util.c#security}
+  only sets the per-process \texttt{RT\_FL\_SECURE} flag
+  (lines 3464, 3474, 3481).
+\begin{verbatim}
+   3445 /*
+   3446  * Determine whether we have a secure executable.  Uid and gid information
+   3447  * can be passed to us via the aux vector, however if these values are -1
+   3448  * then use the appropriate system call to obtain them.
+   3449  *
+   3450  *  -	If the user is the root they can do anything
+   3451  *
+   3452  *  -	If the real and effective uid's don't match, or the real and
+   3453  *	effective gid's don't match then this is determined to be a `secure'
+   3454  *	application.
+   3455  *
+   3456  * This function is called prior to any dependency processing (see _setup.c).
+   3457  * Any secure setting will remain in effect for the life of the process.
+   3458  */
+   3459 void
+   3460 security(uid_t uid, uid_t euid, gid_t gid, gid_t egid, int auxflags)
+   3461 {
+   3462         if (auxflags != -1) {
+   3463                 if ((auxflags & AF_SUN_SETUGID) != 0)
+   3464                         rtld_flags |= RT_FL_SECURE;
+   3465                 return;
+   3466         }
+   3467 
+   3468         if (uid == (uid_t)-1)
+   3469                 uid = getuid();
+   3470         if (uid) {
+   3471                 if (euid == (uid_t)-1)
+   3472                         euid = geteuid();
+   3473                 if (uid != euid)
+   3474                         rtld_flags |= RT_FL_SECURE;
+   3475                 else {
+   3476                         if (gid == (gid_t)-1)
+   3477                                 gid = getgid();
+   3478                         if (egid == (gid_t)-1)
+   3479                                 egid = getegid();
+   3480                         if (gid != egid)
+   3481                                 rtld_flags |= RT_FL_SECURE;
+   3482                 }
+   3483         }
+   3484 }
+\end{verbatim}
+  \item \texttt{LD\_PRELOAD} handling is done in \texttt{ld\_preload()}
+  defined in
+\url{http://src.opensolaris.org/source/xref/onnv/onnv-gate/usr/src/cmd/sgs/rtld/common/setup.c#ld\_preload}:
+\begin{verbatim}
+         /*
+          * If this a secure application, then preload errors are
+          * reduced to warnings, as the errors are non-fatal.
+          */
+         if (rtld_flags & RT_FL_SECURE)
+                 rtld_flags2 |= RT_FL2_FTL2WARN;
+         if (expand_paths(*clmp, ptr, &palp, AL_CNT_NEEDED,
+             PD_FLG_EXTLOAD, 0) != 0)
+\end{verbatim}
+  \item \texttt{expand\_paths()} defined in
+  \url{http://src.opensolaris.org/source/xref/onnv/onnv-gate/usr/src/cmd/sgs/rtld/common/paths.c#expand\_paths}
+  contains the actual check:
+\begin{verbatim}
+          /*
+           * If this a secure application, validation of the expanded
+           * path name may be necessary.
+           */
+          if ((rtld_flags & RT_FL_SECURE) &&
+              (is_path_secure(str, clmp, orig, tkns) == 0))
+          	continue;
+\end{verbatim}
+      \begin{itemize}
+	\item this is different approach (set flag and check where needed)
+	  which allows bigger flexibility. (but the checks have to be in
+	  the right places as opposed to scrub-before-doing-anything
+	  approach used in FreeBSD)
+	  \begin{itemize}
+	  \item ld.so.1(1) SECURITY section has more details, section FILES
+	    sums it up:
+    \texttt{/lib/secure} and \texttt{/usr/lib/secure} are
+         \texttt{LD\_PRELOAD} locations for secure applications.
+    \texttt{/lib/secure/64} and \texttt{/usr/lib/secure/64} are
+         \texttt{LD\_PRELOAD} locations for secure 64-bit applications.
+	 \item the locations are empty by default and writable only by
+	 \texttt{root}.
+	 \end{itemize}
+     \end{itemize}
+    \end{itemize}
+  \item References:
+    \begin{itemize}
+    \item \url{http://xorl.wordpress.com/2009/12/01/freebsd-ld\_preload-security-bypass/}
+    \item \url{http://stealth.openwall.net/xSports/fbsd-rtld-full-package}
+    \end{itemize}
+\end{itemize}
+
+%===============================================================================
+
+\subsection{Function classification}
+
+\begin{itemize}
+\item Library functions can be divided into several equivalence classes
+  according to how secure/usable they are
+    \begin{itemize}
+    \item Some functions are inherently insecure and cannot be safely used
+      at all
+    \item Other functions require great deal of attention to get the code
+      right (correct+secure code)
+    \item There are even some functions which offer consistent API/behavior
+      and make it easier to work with corner cases
+    \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item categorized list of functions:
+    \url{http://hub.opensolaris.org/bin/view/Community+Group+security/funclist}
+  \item Secure programming guidance at OpenSolaris Security community
+    \url{http://www.opensolaris.org/os/community/security/library/secprog}
+  \item Secure programming presentation by Scott Rotondo
+    \url{http://opensolaris.org/os/community/security/library/secprog/secure\_prog.pdf}
+\end{itemize}
+
+%===============================================================================
+
+\subsection{Buffer overflows}
+
+\begin{itemize}
+  \item informal definition: writing past the end of a buffer
+  \begin{itemize}
+    \item comon cases:
+    \begin{itemize}
+      \item string buffers but can be any buffer space
+      \item buffer on the stack but applies also for on the heap buffers
+    \end{itemize}
+  \end{itemize}
+  \item the danger:
+  \begin{itemize}
+    \item the surroundings of the buffer being overflowed (stack)
+    \begin{itemize}
+      \item function return address (redirecting code flow) \texttt{(1)}
+      \item frame pointer (altering code flow)
+    \end{itemize}
+  \item persistent system space (heap)
+    \begin{itemize}
+      \item FILE I/O space
+    \end{itemize}
+  \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item What happens on overflow:
+
+\begin{verbatim}
+  high address -------------------
+                 heap
+               -------------------
+
+
+               -------------------
+                return address
+               -------------------
+                frame pointer
+               -------------------
+
+                local variables
+
+               -------------------
+
+                       |
+                       | stack grows downwards
+                       v
+
+
+  low address --------------------
+\end{verbatim}
+  \item[(1)] Smashing The Stack For Fun And Profit, Phrack Volume Seven, Issue
+  49: \url{http://www.phrack.com/issues.html?issue=49\&id=14\&mode=txt}
+\end{itemize}
+
+%===============================================================================
+
+\subsection{Safe string manipulation 1/2}
+
+\begin{itemize}
+  \item no boundary check: gets(), strcpy(), strcat(), sprintf()/vsprintf() (1)
+  \item watch out when using: strncpy()/strncat()
+\end{itemize}
+
+
+\begin{itemize}
+\item[(1)] unsafe functions:
+  \begin{itemize}
+  \item gets() does not check boundaries at all
+  \end{itemize}
+\item potentionally unsafe / avoid:
+  \begin{itemize}
+  \item strcpy(), strcat()
+    \begin{itemize}
+    \item do not check boundaries at all
+    \item strcpy() does not zero terminate on overflow (but strcat() does)
+    \item possible to calculate the necessary dst size for strcat()
+      but hard to follow the code
+    \end{itemize}
+  \item sprintf()/vsprintf()
+    \begin{itemize}
+    \item no boundary check
+    \item possible approach: compute the buffer size + control the fmt string
+    \end{itemize}
+  \end{itemize}
+\item potentionally unsafe / use with caution:
+  \begin{itemize}
+  \item scanf() family
+    \item scanf() should not be called without limit
+      \item \texttt{scanf("\%s", str);} is asking for buffer overflow
+      \item \texttt{scanf("\%10s", str);} needs 11 characters buffer
+         (+ terminating \texttt{'\\\\0'})
+  \end{itemize}
+  \item snprintf()/vsnprintf()
+  \begin{itemize}
+    \item return the number of characters necessary (without the zero), not the
+      actual number of characters written to the buffer
+      - watch out for constructions like this:
+        p += snprintf(p, lenp, "...");
+  \end{itemize}
+  \item strncpy()
+  \begin{itemize}
+    \item does not zero terminate on overflow
+    \item zero-fills the remainder of the dst buffer in no-overflow case (perf)
+  \end{itemize}
+  \item strncat()
+  \begin{itemize}
+    \item always terminates (even on overflow)
+    \item is not intuitive - some arithmetics for the size argument is almost
+      always needed
+  \end{itemize}
+\end{itemize}
+
+
+%===============================================================================
+
+\subsection{Safe string manipulation 2/2}
+
+\begin{itemize}
+  \item overflow aware+helping: string(3C): \\
+    \texttt{size\_t \funnm{strlcpy}(char *\emph{dst}, const char
+    *\emph{src}, size\_t \emph{dstsize});} \\
+    \texttt{size\_t \funnm{strlcat}(char *\emph{dst}, const char
+    *\emph{src}, size\_t \emph{dstsize});}
+  \begin{itemize}
+    \item always terminate with zero, even in case of buffer overflow
+    \item do not zero-out the rest of the dst string
+    \item easy truncation detection
+    \item the \emph{dstsize} argument is the total space in \emph{dst}
+    \item for \texttt{strlcat()} nothing happens if the dst string is longer
+      than size
+    \item \texttt{strlcat()} returns
+      \texttt{min\{dstsize,strlen(dst)\}+strlen(src)}
+  \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] unfortunately, \texttt{strlcpy()}/\texttt{strlcat()} are not
+  available in Linux world
+    \begin{itemize}
+    \item the main reasons for rejection (for inclusion into GNU libc) seem
+      to be:
+      \begin{enumerate}
+      \item the functions are non-standard
+      \item risk of truncation is considered to be greater than risk of overflow
+      \end{enumerate}
+    \end{itemize}
+    \item the exact reasons are not very clear because of the strong language
+      used by RedHat developers who are opposing the idea:
+    \begin{itemize}
+      \item \url{http://sources.redhat.com/ml/libc-alpha/2000-08/msg00061.html}
+      \item \url{http://sources.redhat.com/ml/libc-alpha/2000-08/msg00053.html}
+        (links from \url{http://en.wikipedia.org/wiki/Strlcpy\#Criticism})
+    \end{itemize}
+    \item that's why the Task below is even more important when writing
+      code which uses static arrays because to make the code work on Linux
+      as well there are basically 2 choices:
+      \begin{itemize}
+        \item either use the unsecure/inconsistent functions (not recommended)
+	\item attach strlcpy/strlcat implementation (just like many projects do)
+      \end{itemize}
+\end{itemize}
+
+\begin{itemize}
+\item ensuring zero termination with \texttt{strncpy()/strncat()}:
+  \begin{itemize}
+  \item pass \texttt{dstlen - 1} as length and terminate by hand:
+    \begin{verbatim}
+    dst[dstlen] = '\0';
+    \end{verbatim}
+    \begin{itemize}
+    \item if the dst variable is static or \texttt{calloc()}'ed the zero
+      termination is not necessary but the code is then harder to inspect
+      for overflow problems
+    \end{itemize}
+  \end{itemize}
+\item problems with using \texttt{strncat()}:
+  \begin{itemize}
+  \item the size passed is the free space available in the buffer (not the
+    total size of the buffer)
+  \item the size argument must not count the terminating zero
+    (even though the function always terminates)
+  \end{itemize}
+\item check for buffer overflow/truncation:
+\begin{verbatim}
+       if (strlcpy(dst, src, dstsize) >= dstsize)
+               return (-1);
+
+       if (snprintf(buf, sizeof (buf), "%s", src) >= sizeof (buf))
+		return (-1);
+\end{verbatim}
+  \begin{itemize}
+  \item the 'equal' case is where the string fits but without the
+     terminating zero
+  \end{itemize}
+  \item \texttt{strlcpy()} paper:
+    \url{http://www.openbsd.org/papers/strlcpy-paper.ps}
+\end{itemize}
+
+{\bf Task}: Write a secure (detects and prevents buffer overflow) function 
+          \funnm{foo()} which constructs a string using the
+          folllowing rule. The size of
+	  the destination string is passed to the function.
+	  Use hard-coded value in the \texttt{main()} calling \funnm{foo()}
+	  (use e.g. \texttt{MAXPATHLEN} def{}ine from \texttt{<sys/param.h>}).
+
+          \begin{itemize}
+	  \item prototype: \texttt{int \funnm{foo}(char *\emph{input},
+	    char *\emph{dst}, size\_t \emph{dstlen});}
+	  \item rule (+ means concatenation):
+          \begin{verbatim}
+            env("HOME") + "/" + argv[1] + "/.foorc"
+          \end{verbatim}
+            \begin{itemize}
+	    \item which means \texttt{main()} will pass \texttt{argv[1]}
+	    to \funnm{foo()} as \emph{input}.
+            \end{itemize}
+ 	  \item write using:
+          \begin{enumerate}
+	    \item \texttt{strcpy()}/\texttt{strcat()} (optional, only for
+	      the really patient)
+            \item \texttt{strncpy()}/\texttt{strncat()}
+            \item \texttt{strlcpy()}/\texttt{strlcat()}
+          \end{enumerate}
+	  \item The function should return the length of the string or
+             in case of overflow a negative number which if placed in
+	     \texttt{abs()} is equal to the number of missing characters
+	     in the destination string.
+	  \item Construct number of unit tests for all possible cases
+	    (most importantly for corner cases) and verify that each of the
+	    implementations works correctly.
+          \end{itemize}
+
+
+%===============================================================================
+
+\subsection{Time of use versus time of check}
+
+\begin{itemize}
+  \item possible race conditions - a window between check and use
+    where the actual object can be swapped/changed but the reference to
+    the object remains the same.
+  \item setuid/setgid program often needs to verify that once it switches
+    to a user the user will be able to read a file
+  \item access(2) does the check using real uid/gid
+\end{itemize}
+
+
+\begin{itemize}
+  \item Example of insecure approach (assume \texttt{path} points to a
+  file in directory writable by others):
+\begin{verbatim}
+    /* we're running with euid = 0, and ruid = userid != 0 */
+    if (access(path, R_OK|W_OK) < 0)
+            return -1;
+
+    fd = open(path, O_RDWR);
+    ...
+\end{verbatim}
+  \begin{itemize}
+  \item access(2) resolves the path to a XXX and performs the check. After
+    that the XXX object is free'd. open(2) does the lookup again XXX.
+    Problem is that this time different object can be used - the operation
+    of check and return is not atomic. Now the setuid application might be
+    writing to different file.
+  \item correct approach: switch to the user and try to open the file -> no
+    race condition
+\begin{verbatim}
+  seteuid(getuid());
+  if ((fd = open(path, O_RDWR)) == -1)
+      err(1, "open")
+  seteuid(0);
+\end{verbatim}
+  \end{itemize}
+  \item similar problem with stat():
+\begin{verbatim}
+  /* make sure "path" is a regular file before opening */
+  if (stat(path, &buf) == -1 || !S_ISREG(buf.st_mode))
+     err(...);
+  fd = open(path, O_RDONLY);
+\end{verbatim}
+  \begin{itemize}
+  \item the solution:
+\begin{verbatim}
+  if ((fd = open(path, O_NONBLOCK|O_RDONLY)) == -1)
+     err(...);
+  if (fstat(fd, &buf) == -1 || !S_ISREG(buf.st_mode))
+     err(...);
+\end{verbatim}
+  \end{itemize}
+  \begin{itemize}
+  \item \texttt{O\_NONBLOCK} will prevent blocking when opening a device
+  \end{itemize}
+\item other functions which take file descriptor as argument instead of
+  filename: \texttt{fchmod()} (chmod(2)), \texttt{fchdir()} (chdir(2)),
+            \texttt{fchroot()} (chroot(2)), ...
+\end{itemize}
+
+
+%===============================================================================
+
+\subsection{Memory locking}
+
+\begin{itemize}
+  \item prevents a memory region from being swapped out to disk (1)
+  \item mlock() is perfectly useful for password managers, for example
+  \item it seems one must use mmap() on Solaris to ensure the correct
+    memory alignment (2)
+  \item plock() is more generic but less granular
+    \begin{itemize}
+      \item allows locking of text/data segments
+    \end{itemize}
+  \item mlockall() locks every current/future mapped page in the address space
+    \begin{itemize}
+      \item the same semantics as mlock()
+      \item can do selective unlock with munlock()
+    \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+\item[(1)] semantics:
+  \begin{itemize}
+  \item no fork() inheritance
+    \begin{itemize}
+    \item unless \texttt{MAP\_PRIVATE} mmap() flag is used
+    \end{itemize}
+  \item locking of the same page by multiple processes is reference counted
+    \begin{itemize}
+    \item the last process which unlocks results in the page being unlocked
+    \end{itemize}
+  \item single process locking of the same page is not nested
+    \begin{itemize}
+    \item i.e. single unlock of page locked multiple times does unlock
+    \end{itemize}
+  \end{itemize}
+  \item[(2)] see \priklad{secure-prog/mlock.c}
+\end{itemize}
+
+%===============================================================================
+
+\subsection{Temporary files handling}
+
+\begin{itemize}
+\item mktemp(3C): \texttt{char *\funnm{mktemp}(char *\emph{template})}
+  \begin{itemize}
+    \item should not be used because of race condition between check and create
+  \end{itemize}
+\item mkstemp(3C)/mkdtemp(3C):
+  \texttt{int \funnm{mkstemp}(char *\emph{template})}
+  \begin{itemize}
+  \item secure, race condition-less variants - return file descriptor of the
+      temporary file and replaces the template argument with filename
+  \end{itemize}
+\item XXX following symlinks
+\end{itemize}
+
+
+Example: mktemp(1) in shell script
+
+\begin{verbatim}
+TMPFILE=`mktemp /tmp/example.XXXXXX`
+if [[ -z "$TMPFILE" ]]; then exit 1; fi
+print "program output" >> $TMPFILE
+\end{verbatim}
+
+%===============================================================================
+
+\subsection{Off-by-one errors / Integer overflows}
+
+\begin{itemize}
+\item \texttt{calloc()} can overflow internally (1)
+\item XXX off-by-one
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] when computing the size of the number of bytes to be
+  allocated XXX
+\end{itemize}
+
+
+%===============================================================================
+
+\subsection{Format string overflows}
+
+\begin{itemize}
+\item XXX user-supplied format string can be used to overflow stack of the
+process
+  - examples XXX:
+    %n
+    %x
+\end{itemize}
+
+
+
+%===============================================================================
+
+\subsection{Privilege separation}
+
+\begin{itemize}
+  \item the goal: minimize the amount of code running as root/with privileges
+  \item basic principle - one unprivileged process for input data processing,
+		    another process for performing privileged tasks.
+		    they communicate with each other using set of well
+                    defined messages.
+\end{itemize}
+
+
+XXX picture
+
+
+%===============================================================================
+
+\subsection{Examples of privilege separated programs}
+
+\begin{itemize}
+\item OpenSSH:
+  \begin{itemize}
+  \item master process: accepts new connections, then immediately forks new
+    process group (1)
+  \item alternative privilege separation model (2)
+  \end{itemize}
+\item OpenBGPD
+  \begin{itemize}
+  \item parent: runs as root, enters routes into kernel
+    - works with routing socket (3)
+  \end{itemize}
+\item OpenNTPD
+  \begin{itemize}
+  \item parent: runs as root, sets the time
+  \item ntp engine: runs as non-root uid/gid \texttt{\_ntp:\_ntp} and
+     chrooted to \texttt{/var/empty}
+  \item simple communication (4)
+  \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] process group consists of:
+    \begin{itemize}
+     \item monitor: privileged process, handles authentication
+     \item listener: SSH communication over the network
+    \end{itemize}
+  \item[(2)] OpenSSH: XXX privsep protocol with XXX messages
+    - SunSSH: altprivsep with XXX messages
+  \item[(3)] children processes:
+    \begin{itemize}
+    \item child \#1 (session engine): manages sessions (TCP connections)
+    - runs as unprivileged user \texttt{\_bgpd}, chroots to \texttt{/var/empty}
+    \item child \#2 (route decision engine): works with routing tables
+    - runs as unprivileged user \texttt{\_bgpd}, chroots to \texttt{/var/empty}
+    \end{itemize}
+  \item[(4)] \texttt{socketpair}, 2 message types (set the time, lookup
+     hosts using the files in \texttt{/etc})
+\end{itemize}
+
+%===============================================================================
+
+\subsection{Privilege revocation/bracketting}
+
+\begin{itemize}
+  \item use only the privileges which are needed (at the time they are needed)
+  \item \texttt{seteuid()}
+    \begin{itemize}
+      \item better: \texttt{setreuid(getuid(), getuid());}
+    \end{itemize}
+  \item privilege awareness (privileges(5) on Solaris)
+\end{itemize}
+
+
+
+%===============================================================================
+
+\subsection{Non-executable stack}
+
+\begin{itemize}
+\item XXX
+\item XXX OpenBSD approach for platforms lacking N-X
+\end{itemize}
+
+\texttt{cc -M /usr/lib/ld/map.noexstk myprogram.c}
+
+
+
+%===============================================================================
+
+\subsection{Prevention techniques and tools}
+
+\begin{itemize}
+\item check return values of functions (and interpret + act upon them correctly)
+  \begin{itemize}
+    \item use \texttt{-Wall} and fix all warnings
+  \end{itemize}
+\item chroot(2) syscall
+  \begin{itemize}
+  \item close unneeded descriptors \bf{and} \texttt{chdir()} \bf{and}
+   \texttt{chroot()}
+  \end{itemize}
+\item automated checking
+  \begin{itemize}
+  \item lint, Parfait, XXX
+  \end{itemize}
+\item stress testing (1)
+\item peer code reviews
+\item do the what-went-wrong case studies regularly (2)
+\end{itemize}
+
+
+\begin{itemize}
+  \item[(1)] try to break the program (e.g. by feeding it all sorts of bogus
+   data, injecting faults, etc.)
+  \item[(2)] Analyses of vulnerabilities/fixes: \url{http://xorl.wordpress.com}
+    (be sure to double check/do your research, though)
+  \item References:
+  \begin{itemize}
+    \item CERT C secure coding standard:
+      \url{https://www.securecoding.cert.org/}
+    \item Secure Coding in C and C++ (Robert C. Seacord)
+      \url{http://www.cert.org/books/secure-coding/}
+  \end{itemize}
+\end{itemize}
+
+\endinput

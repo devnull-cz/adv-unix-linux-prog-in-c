@@ -1,0 +1,271 @@
+% \AtBeginDocument{%
+%   \pdfhorigin=1sp
+%   \pdfvorigin=1sp
+%   \paperwidth=297truemm
+%   \paperheight=210truemm
+% }
+
+\documentclass{article}
+
+\usepackage{url}
+\usepackage{multicol}
+\usepackage{tabularx}
+% \usepackage{sem-a4}
+\usepackage[OT1]{fontenc}
+\usepackage{alltt}
+\usepackage{graphicx}
+%\usepackage{color}
+\usepackage{fancyhdr} % Required for custom headers
+\usepackage{listings} % Required for insertion of code
+\usepackage{extramarks} % Required for headers and footers
+\usepackage[usenames,dvipsnames]{color} % Required for custom colors
+\usepackage{courier} % Required for the courier font
+\usepackage{lastpage} % Required to determine the last page for the footer
+\usepackage[tikz]{bclogo}
+\usepackage{mdframed} % for frames around tasks
+
+% Margins
+\topmargin=-0.45in
+\evensidemargin=0in
+\oddsidemargin=0in
+\textwidth=6.5in
+\textheight=9.0in
+\headsep=0.25in
+
+\linespread{1.1} % Line spacing
+
+% Set up the header and footer
+\pagestyle{fancy}
+\lhead{\hmwkAuthorName} % Top left header
+\chead{\hmwkClass\ (\hmwkTitle)} % Top center head
+\rhead{\firstxmark} % Top right header
+\lfoot{\lastxmark} % Bottom left footer
+\cfoot{} % Bottom center footer
+\rfoot{Page\ \thepage\ of\ \protect\pageref{LastPage}} % Bottom right footer
+\renewcommand\headrulewidth{0.4pt} % Size of the header rule
+\renewcommand\footrulewidth{0.4pt} % Size of the footer rule
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+%------------------------------------------------------------------------------
+%	CODE INCLUSION CONFIGURATION
+%------------------------------------------------------------------------------
+
+\definecolor{MyDarkGreen}{rgb}{0.0,0.4,0.0} % This is the color used for comments
+\lstloadlanguages{C}
+\lstset{language=C, % Use C
+        frame=single, % Single frame around code
+        basicstyle=\small\ttfamily, % Use small true type font
+        keywordstyle=[1]\color{Blue}\bf, % functions bold and blue
+        keywordstyle=[2]\color{Purple}, % function arguments purple
+        keywordstyle=[3]\color{Blue}\underbar, % Custom functions underlined and blue
+        identifierstyle=, % Nothing special about identifiers                                         
+        commentstyle=\usefont{T1}{pcr}{m}{sl}\color{MyDarkGreen}\small, % Comments small dark green courier font
+        stringstyle=\color{Purple}, % Strings are purple
+        showstringspaces=false, % Don't put marks in string spaces
+        tabsize=4, % 4 spaces per tab
+        %
+        % Put standard Perl functions not included in the default language here
+        morekeywords={rand},
+        %
+        % Put Perl function parameters here
+        morekeywords=[2]{on, off, interp},
+        %
+        % Put user defined functions here
+        morekeywords=[3]{test},
+       	%
+        morecomment=[l][\color{Blue}]{...}, % Line continuation (...) like blue comment
+        numbers=left, % Line numbers on left
+        firstnumber=1, % Line numbers start with line 1
+        numberstyle=\tiny\color{Blue}, % Line numbers are blue and small
+        stepnumber=5 % Line numbers go in steps of 5
+}
+
+% Creates a new command to include a C code file
+%   arg1: filename of the script (without .c)
+%   arg2: caption
+\newcommand{\ccode}[2]{
+\begin{itemize}
+\item[]\lstinputlisting[caption=#2,label=#1]{#1.c}
+\end{itemize}
+}
+
+%------------------------------------------------------------------------------
+%	NAME AND CLASS SECTION
+%------------------------------------------------------------------------------
+
+\newcommand{\hmwkTitle}{Advanced Unix programming} % Assignment title
+\newcommand{\hmwkDueDate}{Monday,\ January\ 1,\ 2012} % Due date
+\newcommand{\hmwkClass}{NSWI\ 0138} % Course/class
+\newcommand{\hmwkClassTime}{10:30am} % Class/lecture time
+\newcommand{\hmwkClassInstructor}{Kotal} % Teacher/lecturer
+\newcommand{\hmwkAuthorName}{Vladim\'{i}r Kotal} % Your name
+
+%------------------------------------------------------------------------------
+% colored boxes
+%------------------------------------------------------------------------------
+
+% Info
+%  arg1: caption
+%  arg2: content
+\newcommand{\infoBox}[2]{
+\begin{bclogo}[logo=\bcinfo,arrondi=.3,couleur=green!20,marge=10]{#1}
+#2
+\end{bclogo}
+}
+
+% Alert
+%  arg1: caption
+%  arg2: content
+\newcommand{\alertBox}[2]{
+\begin{bclogo}[logo=\bcattention,arrondi=.3,couleur=red!20,marge=10]{#1}
+#2
+\end{bclogo}
+}
+
+% -----------------------------------------------------------------------------
+% various
+% -----------------------------------------------------------------------------
+
+% Might seem really stupid but my LaTeX installation does not allow to use word
+% "unix". It replaces it with an empty string. So, we must use a workaround.
+\def\myun{un}
+\def\myix{ix}
+
+\usepackage{color}
+\definecolor{MyDarkBlue}{rgb}{0.11,0.14,0.56}
+\definecolor{MyDarkGreen}{rgb}{0.00,0.74,0.00}
+
+% hyperref docs:
+%   http://www.tug.org/applications/hyperref/manual.html
+%   http://en.wikibooks.org/wiki/LaTeX/Hyperlinks
+%
+%\usepackage[plainpages=false,colorlinks,linkcolor=MyDarkBlue,citecolor=MyDarkGreen,dvipdfm]{hyperref}
+% NOTE: use pdfborder to create box around the links (colorlinks option would
+%       reset it to produce no border)
+\usepackage[bookmarks,breaklinks=true,colorlinks=false,%
+pdfauthor={Vladimir Kotal \& Jan Pechanec},%
+pdftitle={Advanced Unix Programming},%
+pdfsubject={Slides for the Advanced Unix Programming course (NSWI138)},%
+pdfkeywords={Unix, programming, advanced, lecture, MFF, MFF-UK},%
+pagebackref=true,%
+]{hyperref}
+
+% by default \url will use monospaced font. suppress this and use normal font.
+\urlstyle{same}
+
+\chardef\clqq=254  \sfcode254=0 \lccode254=0
+\chardef\crqq=255  \sfcode255=0 \lccode255=0
+\DeclareRobustCommand\uv[1]{{\leavevmode{},,#1''}}
+
+\setlength{\textwidth}{0.9\textwidth}
+
+% bold
+\newcommand{\emsl}[1]{\textbf{#1}} % Emphasizing
+
+\newcommand{\emprg}[1]{\emph{\color[rgb]{1,0,0} #1}} % Emphasize in programs
+\newcommand{\emblue}[1]{\emph{\color[rgb]{0,0,1} #1}} % emph in blue
+
+% my very important note
+\newcommand{\rednote}[1]{\color[rgb]{1,0,0} #1}
+
+\newcommand{\CHECK}[1]{{\color[rgb]{1,0,0} $\star$#1$\star$}} % What should be
+							      % checked
+\newenvironment{itemize2} % Itemize with smaller font
+    {\begin{itemize}\small} {\end{itemize}}
+    
+\newsavebox{\boxTMP}
+\newcommand{\raisetab}[1]{ % Align first table row with other text
+    \sbox{\boxTMP}{\begin{tabular}{c}\hline X\\\hline\end{tabular}}
+    \raisebox{\ht\boxTMP}{#1}}
+
+\newcommand{\funnm}[1] {% Emphasized function name
+    {\bf #1}}
+
+\newcommand{\funml}[1] { % Multi-line function prototype
+    \begin{minipage}{\slidewidth}
+    \vspace{-1ex}\texttt{\begin{tabbing}#1\end{tabbing}}
+    \end{minipage}}
+
+\newcommand{\bs}{\char92\relax} % TT backslash
+
+\newtoks\prgcharsI\newtoks\prgcharsII
+{\catcode`\_=13\catcode`\&=13\global\prgcharsI={_}\global\prgcharsII={&}}
+\def\prgchars{ % Do not require backslashes for these characters often used
+                % in C program source code
+    \catcode`\_=13\catcode`\&=13
+    \expandafter\def\the\prgcharsI{\_}\expandafter\def\the\prgcharsII{\&}}
+
+
+%
+% colored frame around source code path to examples
+% which is actually a link
+%
+\newcommand{\priklad}[1]{\fcolorbox{cyan}{white}{%
+  \href{http://mff.devnull.cz/pvu2/src/#1}{\texttt{#1}}}}
+
+%------------------------------------------------------------------------------
+%	Frames and tasks
+%------------------------------------------------------------------------------
+
+\mdfdefinestyle{TaskFrame}{%
+    linecolor=blue,
+    outerlinewidth=2pt,
+    innertopmargin=\baselineskip,
+    innerbottommargin=\baselineskip,
+    innerrightmargin=20pt,
+    innerleftmargin=20pt,
+    backgroundcolor=gray!10!white}
+
+% Task
+%  arg1: name
+%  arg2: source code pointer
+%  arg3: comment
+%  arg4: set of tasks
+%
+% Note: does not work with 'verbatim' environment in #4
+%
+\newcommand{\Task}[4]{
+\begin{mdframed}[style=TaskFrame]
+{\large {\bf Task}: {\em #1}}
+\vspace{1ex}                                                                    
+\\{\bf Source code}: \priklad{#2}
+\\{\bf Comment}: #3
+\\{\bf Steps}:
+#4
+\end{mdframed}
+}
+
+%------------------------------------------------------------------------------
+%	TITLE PAGE
+%------------------------------------------------------------------------------
+
+\title{
+\vspace{2in}
+\textmd{\textbf{\hmwkClass:\ \hmwkTitle}}\\
+% \vspace{0.1in}\large{\textit{\hmwkClassInstructor}}
+\vspace{2in}
+\small{(c) 2011-2016 Vladim\'{i}r Kotal} \\
+\small{(c) 2009-2010 Jan Pechanec, Vladim\'{i}r Kotal} \\
+\vspace{3ex}
+SISAL MFF UK, Malostransk\'{e} n\'{a}m. 25, 118 00 Praha 1 \\
+Charles University\\
+Czech Republic
+}
+
+\author{\textbf{\hmwkAuthorName}\\ \texttt{vlada@devnull.cz}}
+\date{\today} % Insert date here if you want it to appear below your name
+
+\begin{document}
+
+\input{overview.tex}
+\input{testing.tex}
+\input{debugging.tex}
+\input{terminals.tex}
+\input{adv-net-prog.tex}
+\input{adv-thread-prog.tex}
+\input{adv-ipc-and-io.tex}
+\input{secure-prog.tex}
+\input{changelog.tex}
+
+\end{document}
