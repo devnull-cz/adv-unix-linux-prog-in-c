@@ -7,8 +7,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Update the system
-      run: sudo apt-get -qq update
     - name: Checkout master branch
       uses: actions/checkout@v2
       with:
