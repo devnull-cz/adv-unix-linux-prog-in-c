@@ -1,7 +1,3 @@
-PUB_LOCATION=	$(HOST):$(PUB_DIR)
-HOST=		rax
-PUB_DIR=	/export/www/mff-uk/pvu2/common
-
 LATEX=		pdflatex
 
 NOTE=		unix-prog-II.tex
@@ -29,7 +25,3 @@ notes:		$(NOTE_FILES)
 
 clean:
 		-rm -f *.log *.dvi *.aux *.pdf
-
-publish:	$(NOTE_PDF)
-		scp $(NOTE_PDF) $(PUB_LOCATION)/$(NOTE_NEW)
-		ssh $(HOST) "mv $(PUB_DIR)/$(NOTE_NEW) $(PUB_DIR)/$(NOTE_PDF)"
