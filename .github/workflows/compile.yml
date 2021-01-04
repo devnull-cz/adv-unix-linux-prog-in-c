@@ -23,12 +23,12 @@ jobs:
     - name: Install pre-requisites for LaTeX
       working-directory: master
       run: ./dev/install-latex.sh
-    - name: Install pre-requisites for spell check
-      working-directory: master
-      run: ./dev/install-spellcheck.sh
-    - name: Run spellcheck
-      working-directory: master
-      run: make spellcheck
+    #- name: Install pre-requisites for spell check
+    #  working-directory: master
+    #  run: ./dev/install-spellcheck.sh
+    #- name: Run spellcheck
+    #  working-directory: master
+    #  run: make spellcheck
     - name: Compile
       working-directory: master
       run: make
