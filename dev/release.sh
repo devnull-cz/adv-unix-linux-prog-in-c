@@ -12,7 +12,7 @@ fi
 
 # Get the latest version (needs curl + jq).
 if (( $# == 0 )); then
-	curl -s https://api.github.com/repos/devnull-cz/unix-linux-prog-in-c/releases/latest | \
+	curl -s https://api.github.com/repos/devnull-cz/adv-unix-linux-prog-in-c/releases/latest | \
 	    jq .tag_name
 	exit 0
 fi
